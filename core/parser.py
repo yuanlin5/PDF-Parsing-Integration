@@ -213,3 +213,37 @@ def process_pending(force: bool, log) -> list[dict]:
 
     log(f"解析完成：成功 {ok_files} 个，失败 {fail_files} 个")
     return results
+
+
+# ── 归档 ─────────────────────────────────────────────────
+
+def archive_processed(log) -> tuple[int, int]:
+    """把 pending 里已解析成功的源文件移入 done\（保持待处理区干净）。
+
+    返回 (移入数, 剩余数)。重名自动加序号；归档后从已处理清单移除，
+    若用户把文件放回 pending 会重新解析。
+    """
+    processed = _load_processed()
+    moved = 0
+    remaining = 0
+    for p in sorted(config.PENDING.rglob("*")):
+        if not p.is_file():
+            continue
+        if config.FAILED in p.parents or p.parent == config.FAILED:
+            continue
+        key = _rel_key(p)
+        if processed.get(key) != _file_signature(p):
+            remaining += 1
+            continue
+        config.DONE.mkdir(parents=True, exist_ok=True)
+        target = config.DONE / p.name
+        n = 1
+        while target.exists():
+            target = config.DONE / f"{p.stem}_{n}{p.suffix}"
+            n += 1
+        p.rename(target)
+        processed.pop(key, None)
+        moved += 1
+        log(f"  归档：{target.name}")
+    _save_processed(processed)
+    return moved, remaining

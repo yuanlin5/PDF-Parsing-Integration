@@ -1,33 +1,30 @@
-"""PDF 解析集成面板 — 双击 start_panel.bat 启动。
+"""PDF 解析面板 — 双击 start_panel.bat 启动。
 
-三个阶段各一个按钮：
-  ① 开始解析      pending 里的文件逐个交给 MinerU（大 PDF 自动分批）
-  ② 整理到待解析  解析产物按项目分类复制到 to-parse（解析成功后自动执行，可手动重跑）
-  ③ 开始录题      打开 Claude Code 窗口，输入「处理待解析」即可出题入库
+两个阶段各一个按钮：
+  ① 开始解析  pending 里的文件逐个交给 MinerU（大 PDF 自动分批）
+  ② 归档      把 pending 里已解析成功的文件移入 done\，保持待处理区干净
 """
 
 import datetime
 import os
 import queue
-import subprocess
 import threading
 import tkinter as tk
 from tkinter import ttk, scrolledtext
 
 from core import config
-from core import organizer
 from core import parser
 
 USAGE = """【使用方法】
 ① 把 PDF / 图片 放进 workspace\\pending 文件夹（可用子文件夹分项目）
-② 点「① 开始解析」，等日志出现"全部完成"（CPU 解析，大文件请耐心等待）
-③ 打开 workspace\\to-parse\\<项目名>，放一个「要求.txt」，写明出题要求
-   （如：出什么题型、大概几道、重点范围、答案格式）
-④ 点「③ 开始录题」，在新打开的窗口里输入：处理待解析
-⑤ 审核题目，说"通过"即自动录入 Luti2 题库并记录日志
+② 点「① 开始解析」，等日志出现"全部完成"（CPU 解析，大文件请耐心等待，
+   超过 30 页的 PDF 会自动按 15 页/批切分）
+③ 解析成功后点「② 归档」，把 pending 里已完成的文件移入 workspace\\done\\
+④ 解析结果在 workspace\\output\\<文件名>\\ 里，文字内容为 auto\\<文件名>.md，
+   图片在 auto\\images\\ 下
 
 提示：解析失败的文件会移入 workspace\\pending\\failed\\，可从那里取回重试。
-录题前请先打开 Luti2 软件（录题通过 Luti2 的接口写入题库）。"""
+勾选「包含已解析过的文件」可强制重新解析。"""
 
 
 class Panel:
@@ -54,10 +51,8 @@ class Panel:
 
         self.btn_parse = ttk.Button(bar, text="① 开始解析", command=self.on_parse)
         self.btn_parse.pack(side=tk.LEFT)
-        self.btn_organize = ttk.Button(bar, text="② 整理到待解析", command=self.on_organize)
-        self.btn_organize.pack(side=tk.LEFT, padx=(8, 0))
-        self.btn_record = ttk.Button(bar, text="③ 开始录题", command=self.on_record)
-        self.btn_record.pack(side=tk.LEFT, padx=(8, 0))
+        self.btn_archive = ttk.Button(bar, text="② 归档", command=self.on_archive)
+        self.btn_archive.pack(side=tk.LEFT, padx=(8, 0))
         ttk.Checkbutton(
             bar, text="包含已解析过的文件", variable=self.force_var
         ).pack(side=tk.LEFT, padx=(16, 0))
@@ -69,7 +64,6 @@ class Panel:
         for text, path in (
             ("待处理", config.PENDING),
             ("输出结果", config.OUTPUT),
-            ("待解析", config.TO_PARSE),
             ("已完成", config.DONE),
         ):
             ttk.Button(
@@ -125,8 +119,7 @@ class Panel:
     def _set_buttons(self, enabled: bool):
         state = tk.NORMAL if enabled else tk.DISABLED
         self.btn_parse.configure(state=state)
-        self.btn_organize.configure(state=state)
-        self.btn_record.configure(state=state)
+        self.btn_archive.configure(state=state)
 
     def on_parse(self):
         if self.busy:
@@ -143,11 +136,11 @@ class Panel:
 
     def _parse_worker(self):
         try:
-            entries = parser.process_pending(self.force_var.get(), self.log)
-            if entries:
-                self.log("解析完成，自动整理到待解析…")
-                added, skipped = organizer.organize_entries(entries, self.log)
-                self.log(f"✅ 全部完成：新增 {added} 个 md，跳过 {skipped} 个", "done")
+            results = parser.process_pending(self.force_var.get(), self.log)
+            n_files = len({r["stem"] for r in results})
+            if results:
+                self.log(f"✅ 全部完成：成功 {n_files} 个文件，结果在 workspace\\output\\", "done")
+                self.log("提示：点「② 归档」可把 pending 里已完成的文件移入 done\\")
             else:
                 self.log("✅ 没有新文件需要解析", "done")
         except Exception as e:
@@ -156,36 +149,23 @@ class Panel:
             self.busy = False
             self.root.after(0, lambda: self._set_buttons(True))
 
-    def on_organize(self):
+    def on_archive(self):
         if self.busy:
             return
         self.busy = True
         self._set_buttons(False)
-        self.log("──── 手动整理 output 到 to-parse ────")
-        threading.Thread(target=self._organize_worker, daemon=True).start()
+        self.log("──── 归档已解析完成的文件 ────")
+        threading.Thread(target=self._archive_worker, daemon=True).start()
 
-    def _organize_worker(self):
+    def _archive_worker(self):
         try:
-            entries = organizer.collect_from_output()
-            added, skipped = organizer.organize_entries(entries, self.log)
-            self.log(f"✅ 整理完成：新增 {added} 个，跳过 {skipped} 个", "done")
+            moved, left = parser.archive_processed(self.log)
+            self.log(f"✅ 归档完成：移入 done\\ {moved} 个，pending 剩余 {left} 个", "done")
         except Exception as e:
             self.log(f"❌ 出错：{e}", "error")
         finally:
             self.busy = False
             self.root.after(0, lambda: self._set_buttons(True))
-
-    def on_record(self):
-        """打开一个 Claude Code 终端窗口（工作目录 = 本仓库根）。"""
-        self.log("正在打开 Claude Code 窗口…")
-        try:
-            subprocess.Popen(
-                ["cmd", "/c", "start", "cmd", "/k", "claude"],
-                cwd=str(config.ROOT),
-            )
-            self.log("已打开新窗口。在窗口里输入：处理待解析", "done")
-        except Exception as e:
-            self.log(f"❌ 无法启动 Claude Code：{e}", "error")
 
     def _open_folder(self, path):
         try:

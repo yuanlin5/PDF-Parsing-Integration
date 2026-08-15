@@ -3,7 +3,7 @@
 from pathlib import Path
 
 APP_NAME = "PDF 解析集成"
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 
 # 仓库根目录（core 的上一级）
 ROOT = Path(__file__).resolve().parent.parent
@@ -12,9 +12,8 @@ ROOT = Path(__file__).resolve().parent.parent
 WORKSPACE = ROOT / "workspace"
 PENDING = WORKSPACE / "pending"      # 待处理：用户把 PDF/图片丢进来
 FAILED = PENDING / "failed"          # 解析失败的文件移到这里
-OUTPUT = WORKSPACE / "output"        # MinerU 原始输出
-TO_PARSE = WORKSPACE / "to-parse"    # 按项目分类后的 md+images
-DONE = WORKSPACE / "done"            # 已入库项目归档
+OUTPUT = WORKSPACE / "output"        # MinerU 解析结果
+DONE = WORKSPACE / "done"            # 归档：已解析成功的源文件移到这里
 STATUS_FILE = OUTPUT / "status.txt"  # 最近一次运行的状态记录
 PROCESSED_FILE = WORKSPACE / "processed.json"  # 已处理文件清单（防重复）
 
@@ -46,5 +45,5 @@ STABLE_TIMEOUT = 60
 
 def ensure_dirs():
     """确保所有工作目录存在。"""
-    for d in (PENDING, FAILED, OUTPUT, TO_PARSE, DONE):
+    for d in (PENDING, FAILED, OUTPUT, DONE):
         d.mkdir(parents=True, exist_ok=True)
