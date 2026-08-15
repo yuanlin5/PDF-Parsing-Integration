@@ -1,0 +1,9 @@
+# 用户工作数据（不入库）
+workspace/
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# 大文件测试样本（超过 GitHub 100MB 限制的 PDF 留在本地）
+test-pdf1/*.pdf
