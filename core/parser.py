@@ -203,6 +203,8 @@ def process_pending(force: bool, log) -> list[dict]:
         if len(entries) >= expected and entries:
             results.extend(entries)
             processed[_rel_key(src)] = _file_signature(src)
+            from core import review
+            review.reset(_rel_key(src))  # 内容已变，核对状态重置
             ok_files += 1
         else:
             _cleanup_outputs(src)
@@ -218,11 +220,12 @@ def process_pending(force: bool, log) -> list[dict]:
 # ── 归档 ─────────────────────────────────────────────────
 
 def archive_processed(log) -> tuple[int, int]:
-    """把 pending 里已解析成功的源文件移入 done\（保持待处理区干净）。
+    """把 pending 里「已核对确认」的源文件移入 done\（保持待处理区干净）。
 
-    返回 (移入数, 剩余数)。重名自动加序号；归档后从已处理清单移除，
-    若用户把文件放回 pending 会重新解析。
+    返回 (移入数, 剩余数)。未确认的文件不动；重名自动加序号；
+    归档后从已处理清单移除，若用户把文件放回 pending 会重新解析。
     """
+    from core import review
     processed = _load_processed()
     moved = 0
     remaining = 0
@@ -234,6 +237,10 @@ def archive_processed(log) -> tuple[int, int]:
         key = _rel_key(p)
         if processed.get(key) != _file_signature(p):
             remaining += 1
+            continue
+        if not review.is_confirmed(key):
+            remaining += 1
+            log(f"  未确认，跳过：{p.name}")
             continue
         config.DONE.mkdir(parents=True, exist_ok=True)
         target = config.DONE / p.name

@@ -3,7 +3,7 @@
 from pathlib import Path
 
 APP_NAME = "PDF 解析集成"
-VERSION = "1.1.1"
+VERSION = "1.2.0"
 
 # 仓库根目录（core 的上一级）
 ROOT = Path(__file__).resolve().parent.parent
@@ -16,6 +16,7 @@ OUTPUT = WORKSPACE / "output"        # MinerU 解析结果
 DONE = WORKSPACE / "done"            # 归档：已解析成功的源文件移到这里
 STATUS_FILE = OUTPUT / "status.txt"  # 最近一次运行的状态记录
 PROCESSED_FILE = WORKSPACE / "processed.json"  # 已处理文件清单（防重复）
+REVIEW_FILE = WORKSPACE / "review.json"  # 核对状态清单（待核对/已确认）
 
 # MinerU：本机安装位置与参数（与 MinerU 图形界面 mineru_gui.py 保持一致）
 MINERU_EXE = Path(
