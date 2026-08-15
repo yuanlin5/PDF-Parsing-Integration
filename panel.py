@@ -15,17 +15,19 @@ from tkinter import ttk, scrolledtext
 
 from core import config
 from core import parser
+from core import preview
 from core import review
 
 USAGE = """【使用方法】
 ① 把 PDF / 图片 放进 workspace\\pending 文件夹（可用子文件夹分项目）
 ② 点「① 开始解析」，等日志出现"全部完成"（CPU 解析，大文件请耐心等待，
    超过 30 页的 PDF 会自动按 15 页/批切分）
-③ 在下方核对区逐项点「打开核对」：同时打开原文件与解析出的 md，对照
-   文字无误后点「确认」（再次点击可撤销；解析一批核对一批，互不影响）
+③ 在下方核对区逐项点「打开核对」：同时打开原文件与排版好的预览网页
+   （浏览器显示，标题/表格/图片都带格式），对照无误后点「确认」
+   （再次点击可撤销；解析一批核对一批，互不影响）
 ④ 全部确认后点「③ 归档」——只归档已确认的文件，未确认的留在 pending
-⑤ 解析结果在 workspace\\output\\<文件名>\\ 里，文字内容为 auto\\<文件名>.md，
-   图片在 auto\\images\\ 下
+⑤ 解析结果在 workspace\\output\\<文件名>\\ 里，文字内容为 auto\\<文件名>.md
+   （旁边同名的 .preview.html 就是排版好的预览页），图片在 auto\\images\\ 下
 
 提示：解析失败的文件会移入 workspace\\pending\\failed\\，可从那里取回重试。
 勾选「包含已解析过的文件」可强制重新解析（重新解析会重置核对状态）。"""
@@ -169,7 +171,7 @@ class Panel:
                 side=tk.LEFT, fill=tk.X, expand=True
             )
             ttk.Button(
-                row, text="打开核对（原文件+md）",
+                row, text="打开核对（原文件+预览）",
                 command=lambda task=t: self._open_review(task),
             ).pack(side=tk.LEFT, padx=(6, 2))
 
@@ -180,12 +182,12 @@ class Panel:
         self.refresh_checklist()
 
     def _open_review(self, task: dict):
-        """同时打开原文件与全部解析 md。"""
+        """同时打开原文件与全部解析 md 的排版预览（浏览器中查看，格式完整）。"""
         try:
             os.startfile(str(task["src"]))
             for md in task["mds"]:
-                os.startfile(str(md))
-            self.log(f"  已打开核对：{task['stem']}（原文件 + {len(task['mds'])} 个 md）")
+                preview.open_preview(md)
+            self.log(f"  已打开核对：{task['stem']}（原文件 + {len(task['mds'])} 个预览页）")
         except OSError as e:
             self.log(f"❌ 无法打开文件：{e}", "error")
 
