@@ -3,7 +3,7 @@
 from pathlib import Path
 
 APP_NAME = "PDF 解析集成"
-VERSION = "1.2.1"
+VERSION = "1.2.0"
 
 # 仓库根目录（core 的上一级）
 ROOT = Path(__file__).resolve().parent.parent

@@ -1,4 +1,2 @@
 # 运行依赖（Python 3.12）
 pypdf>=6.0
-markdown>=3.5
-
