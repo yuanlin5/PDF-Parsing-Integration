@@ -225,11 +225,13 @@ class Panel:
         vault = self._obsidian_vault_name()
         if vault:
             rel = md.relative_to(config.MD_DB).as_posix()
+            # vault 必须用原文（编码后 Obsidian 匹配不上库名）；file 需编码但保留 /
             uri = (
-                "obsidian://open?vault=" + urllib.parse.quote(vault, safe="")
-                + "&file=" + urllib.parse.quote(rel, safe="")
+                "obsidian://open?vault=" + vault
+                + "&file=" + urllib.parse.quote(rel, safe="/")
             )
-            subprocess.Popen(["cmd", "/c", "start", "", uri])
+            # 用 ShellExecute 触发协议，URI 原样送达（cmd /c start 会截断 & 后的参数）
+            os.startfile(uri)
         elif config.WPS_EXE:
             subprocess.Popen([str(config.WPS_EXE), str(md)])
         else:
