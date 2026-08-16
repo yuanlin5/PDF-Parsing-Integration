@@ -7,11 +7,13 @@
 """
 
 import datetime
+import json
 import os
 import queue
 import subprocess
 import threading
 import tkinter as tk
+import urllib.parse
 from pathlib import Path
 from tkinter import ttk, scrolledtext
 
@@ -214,10 +216,36 @@ class Panel:
             self.log(f"❌ 无法打开文件：{e}", "error")
 
     def _open_md_in_obsidian(self, md: Path):
-        if config.OBSIDIAN_EXE.exists():
-            subprocess.Popen([str(config.OBSIDIAN_EXE), str(md)])
+        """用 Obsidian 打开 md：优先走专用 URI 协议（打开到 output 库的对应文件）。"""
+        vault = self._obsidian_vault_name()
+        if vault:
+            rel = md.relative_to(config.OUTPUT).as_posix()
+            uri = (
+                "obsidian://open?vault=" + urllib.parse.quote(vault, safe="")
+                + "&file=" + urllib.parse.quote(rel, safe="")
+            )
+            subprocess.Popen(["cmd", "/c", "start", "", uri])
         else:
-            os.startfile(str(md))  # 兜底：交给系统默认程序
+            # output 尚未注册为 Obsidian 库：触发一次性确认提示
+            uri = "obsidian://open?path=" + urllib.parse.quote(str(config.OUTPUT), safe="")
+            subprocess.Popen(["cmd", "/c", "start", "", uri])
+            self.log(
+                "  首次使用：请在 Obsidian 弹出的提示里点「确认」（把 output 加入库），"
+                "然后再点一次「编辑 md」", "error",
+            )
+
+    def _obsidian_vault_name(self) -> str | None:
+        """从 Obsidian 配置里找 output 文件夹对应的库名（未注册返回 None）。"""
+        try:
+            cfg = Path(os.environ.get("APPDATA", "")) / "obsidian" / "obsidian.json"
+            data = json.loads(cfg.read_text(encoding="utf-8"))
+            target = str(config.OUTPUT.resolve()).lower()
+            for v in data.get("vaults", {}).values():
+                if str(Path(v.get("path", "")).resolve()).lower() == target:
+                    return Path(v["path"]).name  # 库名默认与文件夹同名
+        except Exception:
+            pass
+        return None
 
     # ── 日志（线程安全：队列 + 轮询回写界面）────────────────
 
