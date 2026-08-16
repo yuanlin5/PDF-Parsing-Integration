@@ -201,6 +201,12 @@ def process_pending(force: bool, log) -> list[dict]:
             if postprocess.process_file(entry["src_md"]):
                 log(f"  已转换 HTML 表格为 Markdown 表格：{entry['src_md'].name}")
 
+        # 收集进 md数据库（核对与 Luti2 都从这里读）
+        from core import mddb
+        for entry in entries:
+            if mddb.collect(entry["src_md"], entry["stem"], entry["chunk"], log):
+                log(f"  已收集进 md数据库：{entry['stem']}")
+
         # 全部批都成功才算成功
         if pages is not None and pages > config.SPLIT_THRESHOLD:
             expected = (pages + config.PAGE_CHUNK - 1) // config.PAGE_CHUNK

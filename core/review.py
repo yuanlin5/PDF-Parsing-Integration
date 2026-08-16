@@ -55,18 +55,14 @@ def _rel_key(path: Path) -> str:
 
 
 def _find_mds(stem: str) -> list[Path]:
-    """该文件在 output 下的全部 md 结果（分批文件有多个）。
-
-    普通文件：OUTPUT/<名>/auto/<名>.md
-    分批文件：OUTPUT/<名>_partN/<名>/auto/<名>.md
-    """
-    mds = sorted(config.OUTPUT.glob(f"{stem}/auto/{stem}.md"))
-    mds += sorted(config.OUTPUT.glob(f"{stem}_part*/{stem}/auto/{stem}.md"))
+    """该文件在 md数据库 下的全部 md（分批文件有多个）。"""
+    mds = sorted(config.MD_DB.glob(f"{stem}.md"))
+    mds += sorted(config.MD_DB.glob(f"{stem}_part*.md"))
     return mds
 
 
 def list_tasks() -> list[dict]:
-    """核对任务清单：pending 里已有解析结果的文件（含分批）。
+    """核对任务清单：pending 里已在 md数据库 有结果的文件（含分批）。
 
     任务条目：{key, src, stem, mds, confirmed}
     """

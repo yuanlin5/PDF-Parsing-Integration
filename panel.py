@@ -24,12 +24,12 @@ USAGE = """【使用方法】
 ② 点「① 开始解析」，等日志出现"全部完成"（CPU 解析，大文件请耐心等待，
    超过 30 页的 PDF 会自动按 15 页/批切分）
 ③ 在下方核对区逐项点「打开核对」：同时打开原文件与解析出的 md
-   （md 直接在 WPS 里显示，标题/表格/文字都所见即所得，发现错误
-   就地修改，改完 Ctrl+S 保存）；
+   （md 直接从 md数据库 文件夹打开，WPS 里显示，标题/表格/文字都
+   所见即所得，发现错误就地修改，改完 Ctrl+S 保存）；
    对照无误后点「确认」（再次点击可撤销；解析一批核对一批，互不影响）
 ④ 全部确认后点「③ 归档」——只归档已确认的文件，未确认的留在 pending
-⑤ 解析结果在 workspace\\output\\<文件名>\\ 里，文字内容为 auto\\<文件名>.md，
-   图片在 auto\\images\\ 下
+⑤ 解析结果统一收集在 md数据库 文件夹里（WPS 核对、Luti2 资料库
+   都从这里读取）；下方「历史记录」区展示已处理归档的文件清单
 
 提示：解析失败的文件会移入 workspace\\pending\\failed\\，可从那里取回重试。
 勾选「包含已解析过的文件」可强制重新解析（重新解析会重置核对状态）。"""
@@ -46,13 +46,14 @@ class Panel:
         self._build_ui()
         self._poll_queue()
         self.refresh_checklist()
+        self.refresh_history()
 
     # ── 界面构建 ──────────────────────────────────────────
 
     def _build_ui(self):
         self.root.title(f"{config.APP_NAME} 面板  v{config.VERSION}")
-        self.root.geometry("860x720")
-        self.root.minsize(760, 600)
+        self.root.geometry("860x800")
+        self.root.minsize(760, 640)
         self.root.option_add("*Font", ("Microsoft YaHei UI", 10))
 
         # 按钮区
@@ -74,6 +75,7 @@ class Panel:
         for text, path in (
             ("待处理", config.PENDING),
             ("输出结果", config.OUTPUT),
+            ("md数据库", config.MD_DB),
             ("已完成", config.DONE),
         ):
             ttk.Button(
@@ -120,6 +122,29 @@ class Panel:
         self.task_canvas.bind(
             "<Configure>",
             lambda e: self.task_canvas.itemconfigure(self._task_window, width=e.width),
+        )
+
+        # 历史记录区
+        hist_frame = ttk.LabelFrame(self.root, text="历史记录（已处理归档的文件）", padding=6)
+        hist_frame.pack(fill=tk.X, padx=12, pady=(8, 0))
+        hist_list = ttk.Frame(hist_frame)
+        hist_list.pack(fill=tk.X)
+        self.hist_canvas = tk.Canvas(hist_list, height=110, highlightthickness=0)
+        hsb = ttk.Scrollbar(hist_list, orient="vertical", command=self.hist_canvas.yview)
+        self.hist_canvas.configure(yscrollcommand=hsb.set)
+        self.hist_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        hsb.pack(side=tk.RIGHT, fill=tk.Y)
+        self.hist_inner = ttk.Frame(self.hist_canvas)
+        self._hist_window = self.hist_canvas.create_window(
+            (0, 0), window=self.hist_inner, anchor="nw"
+        )
+        self.hist_inner.bind(
+            "<Configure>",
+            lambda e: self.hist_canvas.configure(scrollregion=self.hist_canvas.bbox("all")),
+        )
+        self.hist_canvas.bind(
+            "<Configure>",
+            lambda e: self.hist_canvas.itemconfigure(self._hist_window, width=e.width),
         )
 
         # 日志区
@@ -198,6 +223,31 @@ class Panel:
             subprocess.Popen([str(config.WPS_EXE), str(md)])
         else:
             os.startfile(str(md))  # 兜底：交给系统默认程序
+
+    # ── 历史记录区 ────────────────────────────────────────
+
+    def refresh_history(self):
+        """重建历史记录列表：done 里已处理归档的文件（按时间倒序）。"""
+        for child in self.hist_inner.winfo_children():
+            child.destroy()
+        files = sorted(
+            config.DONE.glob("*"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        if not files:
+            ttk.Label(self.hist_inner, text="（暂无历史记录）",
+                      foreground="#999").pack(anchor=tk.W, pady=4)
+            return
+        for f in files:
+            if not f.is_file():
+                continue
+            row = ttk.Frame(self.hist_inner)
+            row.pack(fill=tk.X, pady=1)
+            t = datetime.datetime.fromtimestamp(f.stat().st_mtime).strftime("%m-%d %H:%M")
+            ttk.Label(row, text=f"{t}  {f.name}", anchor=tk.W).pack(
+                side=tk.LEFT, fill=tk.X, expand=True
+            )
 
     # ── 日志（线程安全：队列 + 轮询回写界面）────────────────
 
@@ -281,6 +331,7 @@ class Panel:
             self.busy = False
             self.root.after(0, self._set_buttons, True)
             self.root.after(0, self.refresh_checklist)
+            self.root.after(0, self.refresh_history)
 
     def _open_folder(self, path):
         try:

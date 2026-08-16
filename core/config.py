@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 APP_NAME = "PDF 解析集成"
-VERSION = "1.2.5"
+VERSION = "1.3.0"
 
 def _find_wps() -> Path | None:
     """定位 WPS 文字（wps.exe），取已安装的最高版本；未安装返回 None。"""
@@ -39,6 +39,7 @@ PENDING = WORKSPACE / "pending"      # 待处理：用户把 PDF/图片丢进来
 FAILED = PENDING / "failed"          # 解析失败的文件移到这里
 OUTPUT = WORKSPACE / "output"        # MinerU 解析结果
 DONE = WORKSPACE / "done"            # 归档：已解析成功的源文件移到这里
+MD_DB = ROOT / "md数据库"            # md 数据库：解析后的 md 统一收集于此（核对/Luti2 都从这里读）
 STATUS_FILE = OUTPUT / "status.txt"  # 最近一次运行的状态记录
 PROCESSED_FILE = WORKSPACE / "processed.json"  # 已处理文件清单（防重复）
 REVIEW_FILE = WORKSPACE / "review.json"  # 核对状态清单（待核对/已确认）
@@ -71,5 +72,5 @@ STABLE_TIMEOUT = 60
 
 def ensure_dirs():
     """确保所有工作目录存在。"""
-    for d in (PENDING, FAILED, OUTPUT, DONE):
+    for d in (PENDING, FAILED, OUTPUT, DONE, MD_DB):
         d.mkdir(parents=True, exist_ok=True)

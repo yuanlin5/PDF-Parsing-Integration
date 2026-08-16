@@ -1,5 +1,6 @@
 # 用户工作数据（不入库）
 workspace/
+md数据库/
 
 # Python 缓存
 __pycache__/
