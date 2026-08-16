@@ -3,7 +3,15 @@
 from pathlib import Path
 
 APP_NAME = "PDF 解析集成"
-VERSION = "1.2.0"
+VERSION = "1.2.1"
+
+# Edge 浏览器（内置 Markdown 渲染，用于直接查看 md 的排版格式）
+EDGE_EXE = Path(
+    r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+)
+
+# Obsidian（md 所见即所得编辑器，用于核对时修改解析结果）
+OBSIDIAN_EXE = Path(r"C:\Program Files\Obsidian\Obsidian.exe")
 
 # 仓库根目录（core 的上一级）
 ROOT = Path(__file__).resolve().parent.parent
