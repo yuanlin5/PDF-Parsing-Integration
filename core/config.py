@@ -1,17 +1,39 @@
 """全局配置：路径常量、版本号、MinerU 调用参数。"""
 
+import os
 from pathlib import Path
 
 APP_NAME = "PDF 解析集成"
-VERSION = "1.2.1"
+VERSION = "1.2.3"
 
 # Edge 浏览器（内置 Markdown 渲染，用于直接查看 md 的排版格式）
 EDGE_EXE = Path(
     r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 )
 
-# Obsidian（md 所见即所得编辑器，用于核对时修改解析结果）
-OBSIDIAN_EXE = Path(r"C:\Program Files\Obsidian\Obsidian.exe")
+def _find_wps() -> Path | None:
+    """定位 WPS 文字（wps.exe），取已安装的最高版本；未安装返回 None。"""
+    bases = [
+        Path(r"C:\Program Files (x86)\Kingsoft\WPS Office"),
+        Path(r"C:\Program Files\Kingsoft\WPS Office"),
+        Path(os.environ.get("LOCALAPPDATA", "")) / "Kingsoft" / "WPS Office",
+    ]
+
+    def _ver(p: Path) -> tuple:
+        try:
+            return tuple(int(x) for x in p.parent.parent.name.split("."))
+        except ValueError:
+            return (0,)
+
+    exes: list[Path] = []
+    for base in bases:
+        if base.exists():
+            exes += list(base.glob("*/office6/wps.exe"))
+    return max(exes, key=_ver) if exes else None
+
+
+# WPS 文字（用户熟悉的办公软件，md 阅读+编辑都所见即所得，用于核对时修改解析结果）
+WPS_EXE = _find_wps()
 
 # 仓库根目录（core 的上一级）
 ROOT = Path(__file__).resolve().parent.parent

@@ -7,13 +7,11 @@
 """
 
 import datetime
-import json
 import os
 import queue
 import subprocess
 import threading
 import tkinter as tk
-import urllib.parse
 from pathlib import Path
 from tkinter import ttk, scrolledtext
 
@@ -27,7 +25,8 @@ USAGE = """【使用方法】
    超过 30 页的 PDF 会自动按 15 页/批切分）
 ③ 在下方核对区逐项点「打开核对」：同时打开原文件与解析出的 md
    （md 用 Edge 浏览器打开，自动显示标题/加粗/图片等排版格式）；
-   发现文字有误就点「编辑 md」在 Obsidian 里改完保存（Ctrl+S）；
+   发现文字有误就点「编辑 md」用 WPS 打开修改（标题/表格/文字都
+   所见即所得，改完 Ctrl+S 保存）；
    对照无误后点「确认」（再次点击可撤销；解析一批核对一批，互不影响）
 ④ 全部确认后点「③ 归档」——只归档已确认的文件，未确认的留在 pending
 ⑤ 解析结果在 workspace\\output\\<文件名>\\ 里，文字内容为 auto\\<文件名>.md，
@@ -207,45 +206,19 @@ class Panel:
             os.startfile(str(md))  # 兜底：交给系统默认程序
 
     def _open_editor(self, task: dict):
-        """用 Obsidian 打开全部解析 md 进行编辑（所见即所得）。"""
+        """用 WPS 打开全部解析 md 进行编辑（阅读、表格、编辑都所见即所得）。"""
         try:
             for md in task["mds"]:
-                self._open_md_in_obsidian(md)
-            self.log(f"  已在 Obsidian 打开：{task['stem']}（编辑后 Ctrl+S 保存即可）")
+                self._open_md_in_wps(md)
+            self.log(f"  已在 WPS 打开：{task['stem']}（编辑后 Ctrl+S 保存即可）")
         except OSError as e:
             self.log(f"❌ 无法打开文件：{e}", "error")
 
-    def _open_md_in_obsidian(self, md: Path):
-        """用 Obsidian 打开 md：优先走专用 URI 协议（打开到 output 库的对应文件）。"""
-        vault = self._obsidian_vault_name()
-        if vault:
-            rel = md.relative_to(config.OUTPUT).as_posix()
-            uri = (
-                "obsidian://open?vault=" + urllib.parse.quote(vault, safe="")
-                + "&file=" + urllib.parse.quote(rel, safe="")
-            )
-            subprocess.Popen(["cmd", "/c", "start", "", uri])
+    def _open_md_in_wps(self, md: Path):
+        if config.WPS_EXE:
+            subprocess.Popen([str(config.WPS_EXE), str(md)])
         else:
-            # output 尚未注册为 Obsidian 库：触发一次性确认提示
-            uri = "obsidian://open?path=" + urllib.parse.quote(str(config.OUTPUT), safe="")
-            subprocess.Popen(["cmd", "/c", "start", "", uri])
-            self.log(
-                "  首次使用：请在 Obsidian 弹出的提示里点「确认」（把 output 加入库），"
-                "然后再点一次「编辑 md」", "error",
-            )
-
-    def _obsidian_vault_name(self) -> str | None:
-        """从 Obsidian 配置里找 output 文件夹对应的库名（未注册返回 None）。"""
-        try:
-            cfg = Path(os.environ.get("APPDATA", "")) / "obsidian" / "obsidian.json"
-            data = json.loads(cfg.read_text(encoding="utf-8"))
-            target = str(config.OUTPUT.resolve()).lower()
-            for v in data.get("vaults", {}).values():
-                if str(Path(v.get("path", "")).resolve()).lower() == target:
-                    return Path(v["path"]).name  # 库名默认与文件夹同名
-        except Exception:
-            pass
-        return None
+            os.startfile(str(md))  # 兜底：交给系统默认程序
 
     # ── 日志（线程安全：队列 + 轮询回写界面）────────────────
 
