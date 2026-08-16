@@ -7,11 +7,13 @@
 """
 
 import datetime
+import json
 import os
 import queue
 import subprocess
 import threading
 import tkinter as tk
+import urllib.parse
 from pathlib import Path
 from tkinter import ttk, scrolledtext
 
@@ -24,7 +26,7 @@ USAGE = """【使用方法】
 ② 点「① 开始解析」，等日志出现"全部完成"（CPU 解析，大文件请耐心等待，
    超过 30 页的 PDF 会自动按 15 页/批切分）
 ③ 在下方核对区逐项点「打开核对」：同时打开原文件与解析出的 md
-   （md 直接从 md数据库 文件夹打开，WPS 里显示，标题/表格/文字都
+   （md 直接在 Obsidian 里显示，无弹窗直达，标题/表格/文字都
    所见即所得，发现错误就地修改，改完 Ctrl+S 保存）；
    对照无误后点「确认」（再次点击可撤销；解析一批核对一批，互不影响）
 ④ 全部确认后点「③ 归档」——只归档已确认的文件，未确认的留在 pending
@@ -209,20 +211,42 @@ class Panel:
         self.refresh_checklist()
 
     def _open_review(self, task: dict):
-        """同时打开原文件与全部解析 md（md 用 WPS 打开：阅读、表格、编辑都所见即所得）。"""
+        """同时打开原文件与全部解析 md（md 用 Obsidian 打开：无确认弹窗，直接显示）。"""
         try:
             os.startfile(str(task["src"]))
             for md in task["mds"]:
-                self._open_md_in_wps(md)
-            self.log(f"  已打开核对：{task['stem']}（原文件 + WPS，可直接修改后 Ctrl+S 保存）")
+                self._open_md_in_obsidian(md)
+            self.log(f"  已打开核对：{task['stem']}（原文件 + Obsidian，可直接修改后 Ctrl+S 保存）")
         except OSError as e:
             self.log(f"❌ 无法打开文件：{e}", "error")
 
-    def _open_md_in_wps(self, md: Path):
-        if config.WPS_EXE:
+    def _open_md_in_obsidian(self, md: Path):
+        """用 Obsidian 打开 md（md数据库 已注册为 Obsidian 库，URI 直达无弹窗）。"""
+        vault = self._obsidian_vault_name()
+        if vault:
+            rel = md.relative_to(config.MD_DB).as_posix()
+            uri = (
+                "obsidian://open?vault=" + urllib.parse.quote(vault, safe="")
+                + "&file=" + urllib.parse.quote(rel, safe="")
+            )
+            subprocess.Popen(["cmd", "/c", "start", "", uri])
+        elif config.WPS_EXE:
             subprocess.Popen([str(config.WPS_EXE), str(md)])
         else:
             os.startfile(str(md))  # 兜底：交给系统默认程序
+
+    def _obsidian_vault_name(self) -> str | None:
+        """从 Obsidian 配置里找 md数据库 对应的库名（未注册返回 None）。"""
+        try:
+            cfg = Path(os.environ.get("APPDATA", "")) / "obsidian" / "obsidian.json"
+            data = json.loads(cfg.read_text(encoding="utf-8"))
+            target = str(config.MD_DB.resolve()).lower()
+            for v in data.get("vaults", {}).values():
+                if str(Path(v.get("path", "")).resolve()).lower() == target:
+                    return Path(v["path"]).name  # 库名默认与文件夹同名
+        except Exception:
+            pass
+        return None
 
     # ── 历史记录区 ────────────────────────────────────────
 

@@ -55,9 +55,9 @@ def _rel_key(path: Path) -> str:
 
 
 def _find_mds(stem: str) -> list[Path]:
-    """该文件在 md数据库 下的全部 md（分批文件有多个）。"""
-    mds = sorted(config.MD_DB.glob(f"{stem}.md"))
-    mds += sorted(config.MD_DB.glob(f"{stem}_part*.md"))
+    """该文件在 md数据库 下的全部 md（分批文件有多个；支持分组子文件夹）。"""
+    mds = sorted(config.MD_DB.glob(f"**/{stem}.md"))
+    mds += sorted(config.MD_DB.glob(f"**/{stem}_part*.md"))
     return mds
 
 
