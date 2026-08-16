@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 APP_NAME = "PDF 解析集成"
-VERSION = "1.2.4"
+VERSION = "1.2.5"
 
 def _find_wps() -> Path | None:
     """定位 WPS 文字（wps.exe），取已安装的最高版本；未安装返回 None。"""

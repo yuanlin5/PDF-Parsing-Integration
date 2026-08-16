@@ -195,6 +195,12 @@ def process_pending(force: bool, log) -> list[dict]:
                     "chunk": None,
                 })
 
+        # md 后处理：HTML 表格转 Markdown 表格（WPS 不渲染 HTML 标签）
+        from core import postprocess
+        for entry in entries:
+            if postprocess.process_file(entry["src_md"]):
+                log(f"  已转换 HTML 表格为 Markdown 表格：{entry['src_md'].name}")
+
         # 全部批都成功才算成功
         if pages is not None and pages > config.SPLIT_THRESHOLD:
             expected = (pages + config.PAGE_CHUNK - 1) // config.PAGE_CHUNK
