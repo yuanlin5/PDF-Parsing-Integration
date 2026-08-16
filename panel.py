@@ -24,9 +24,8 @@ USAGE = """【使用方法】
 ② 点「① 开始解析」，等日志出现"全部完成"（CPU 解析，大文件请耐心等待，
    超过 30 页的 PDF 会自动按 15 页/批切分）
 ③ 在下方核对区逐项点「打开核对」：同时打开原文件与解析出的 md
-   （md 用 Edge 浏览器打开，自动显示标题/加粗/图片等排版格式）；
-   发现文字有误就点「编辑 md」用 WPS 打开修改（标题/表格/文字都
-   所见即所得，改完 Ctrl+S 保存）；
+   （md 直接在 WPS 里显示，标题/表格/文字都所见即所得，发现错误
+   就地修改，改完 Ctrl+S 保存）；
    对照无误后点「确认」（再次点击可撤销；解析一批核对一批，互不影响）
 ④ 全部确认后点「③ 归档」——只归档已确认的文件，未确认的留在 pending
 ⑤ 解析结果在 workspace\\output\\<文件名>\\ 里，文字内容为 auto\\<文件名>.md，
@@ -174,13 +173,9 @@ class Panel:
                 side=tk.LEFT, fill=tk.X, expand=True
             )
             ttk.Button(
-                row, text="打开核对",
+                row, text="打开核对（原文件+WPS）",
                 command=lambda task=t: self._open_review(task),
             ).pack(side=tk.LEFT, padx=(6, 2))
-            ttk.Button(
-                row, text="编辑 md",
-                command=lambda task=t: self._open_editor(task),
-            ).pack(side=tk.LEFT, padx=(2, 2))
 
     def _toggle_confirm(self, task: dict):
         review.set_confirmed(task["key"], not task["confirmed"])
@@ -189,28 +184,12 @@ class Panel:
         self.refresh_checklist()
 
     def _open_review(self, task: dict):
-        """同时打开原文件与全部解析 md（md 用 Edge 打开，自动显示排版格式）。"""
+        """同时打开原文件与全部解析 md（md 用 WPS 打开：阅读、表格、编辑都所见即所得）。"""
         try:
             os.startfile(str(task["src"]))
             for md in task["mds"]:
-                self._open_md(md)
-            self.log(f"  已打开核对：{task['stem']}（原文件 + {len(task['mds'])} 个 md，Edge 显示格式）")
-        except OSError as e:
-            self.log(f"❌ 无法打开文件：{e}", "error")
-
-    def _open_md(self, md: Path):
-        """用 Edge 打开 md（Edge 内置 Markdown 渲染，直接显示排版格式）。"""
-        if config.EDGE_EXE.exists():
-            subprocess.Popen([str(config.EDGE_EXE), md.as_uri()])
-        else:
-            os.startfile(str(md))  # 兜底：交给系统默认程序
-
-    def _open_editor(self, task: dict):
-        """用 WPS 打开全部解析 md 进行编辑（阅读、表格、编辑都所见即所得）。"""
-        try:
-            for md in task["mds"]:
                 self._open_md_in_wps(md)
-            self.log(f"  已在 WPS 打开：{task['stem']}（编辑后 Ctrl+S 保存即可）")
+            self.log(f"  已打开核对：{task['stem']}（原文件 + WPS，可直接修改后 Ctrl+S 保存）")
         except OSError as e:
             self.log(f"❌ 无法打开文件：{e}", "error")
 

@@ -4,12 +4,7 @@ import os
 from pathlib import Path
 
 APP_NAME = "PDF 解析集成"
-VERSION = "1.2.3"
-
-# Edge 浏览器（内置 Markdown 渲染，用于直接查看 md 的排版格式）
-EDGE_EXE = Path(
-    r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
-)
+VERSION = "1.2.4"
 
 def _find_wps() -> Path | None:
     """定位 WPS 文字（wps.exe），取已安装的最高版本；未安装返回 None。"""
